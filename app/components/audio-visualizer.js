@@ -3,7 +3,10 @@ const {
   Component,
   A: EmberArray,
   set,
-  get
+  get,
+  run: {
+    schedule
+  }
 } = Ember
 
 const {
@@ -11,13 +14,14 @@ const {
   PerspectiveCamera,
   WebGLRenderer,
   CubeGeometry,
-  MeshBasicMaterial,
+  AmbientLight,
   Mesh,
+  MeshLambertMaterial,
   OrbitControls
 } = THREE
 
 export default Component.extend({
-  size: 128,
+  size: 32,
 
   mPlayer: null,
   mScene: null,
@@ -69,11 +73,18 @@ export default Component.extend({
     get(this, 'element').appendChild(renderer.domElement)
 
     let mCubes = EmberArray()
+    // Ambient Light
+    var light = new AmbientLight( 0x909090 ); // soft white light
+    scene.add(light);
 
     get(this, 'mFrequencies').forEach((e, i) => {
       let mGeometry = new CubeGeometry(1.5, 1.5, 1.5)
-      let mMaterial = new MeshBasicMaterial({
-        color: '#' + Math.floor(Math.random()*16777215).toString(16)
+      let mMaterial = new MeshLambertMaterial({
+        color: '#' + Math.floor(Math.random()*16777215).toString(16),
+        ambient: 0x2222c8,
+          transparent: false,
+          wireframe: true,
+          wireframeLinewidth: 4
       })
       var cube = new Mesh(mGeometry, mMaterial)
       cube.position.set(i * 2, 0, 0)
@@ -81,8 +92,17 @@ export default Component.extend({
       mCubes.push(cube)
     })
     set(this, 'mCubes', mCubes)
-
     set(this, 'mControls', new OrbitControls(camera))
+
+    window.addEventListener('resize', function () {
+      schedule('sync', () => {
+        let width = window.innerWidth
+        let height = window.innerHeight
+        camera.aspect = width / height
+        camera.updateProjectionMatrix();
+        renderer.setSize(width, height)
+      })
+    }, false)
     this.draw()
   },
   draw () {
@@ -92,12 +112,12 @@ export default Component.extend({
     get(this, 'mAnalyser').getByteFrequencyData(frequencies)
     get(this, 'mCubes').forEach((cube, index) => {
       let freq = frequencies[index]
-      cube.scale.z = freq > 1 ? freq : 1
+      cube.scale.y = Math.max(freq / 5, 1)
     })
 
     renderer.render(get(this, 'mScene'), get(this, 'mCamera'))
     get(this, 'mControls').update()
 
-    window.requestAnimationFrame(this.draw.bind(this))
+    window.setTimeout(this.draw.bind(this), 1000 / 30)
   }
 })
